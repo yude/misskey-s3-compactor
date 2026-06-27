@@ -22,14 +22,12 @@ services:
       - .env
     volumes:
       - ./crontab:/crontab:ro
-      # tmpfs mirrors the K8s emptyDir { medium: Memory, sizeLimit: 2Gi }.
-      # Do not set 'mode' — YAML parses 1777 as decimal (not octal 0o1777),
-      # which produces wrong directory permissions (3600 instead of 1777).
-      # tmpfs defaults to 1777, which is correct.
-      - type: tmpfs
-        target: /tmp
-        tmpfs:
-          size: 2147483648
+      # The long-form tmpfs syntax inherits the underlying /tmp directory
+      # permissions from the image (drwxr-sr-x in alpine), so the non-root
+      # compactor user cannot write.  The short-form tmpfs directive sets
+      # the mount point mode to 1777 explicitly.
+    tmpfs:
+      - /tmp:size=2147483648,mode=1777
     # Mirrors K8s securityContext on the container and pod.
     user: "65532:65532"
     # read_only is omitted intentionally: Docker Compose applies it to all

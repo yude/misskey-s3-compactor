@@ -43,6 +43,10 @@ RUN case "$TARGETARCH" in \
 
 COPY --from=build /out/compactor /usr/local/bin/compactor
 
+# tmpfs inherits the mount-point mode at runtime. Ensure /tmp is world-writable
+# so the non-root compactor user can create scratch files.
+RUN chmod 1777 /tmp
+
 # Run as a non-root user. The compactor never needs to write to the local fs
 # except for /tmp scratch files (the binaries invoked below write there too).
 RUN addgroup -S -g 65532 compactor && \
