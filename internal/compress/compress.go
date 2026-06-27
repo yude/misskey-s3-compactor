@@ -76,8 +76,11 @@ func (c *Compressor) Compress(ctx context.Context, srcPath, destPath, mimeType, 
 // commandContext creates an exec.Cmd that is killed with SIGINT (not SIGKILL)
 // when the context is cancelled, then force-killed after a 5-second grace
 // period. This lets ffmpeg and other tools clean up gracefully on Ctrl+C.
+//
+// We must use CommandContext (not Command) so the Cancel field is allowed by
+// Go's exec package (Go 1.21+ rejects Cancel on plain-Command cmds).
 func commandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
-	cmd := exec.Command(name, args...)
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Cancel = func() error {
 		return cmd.Process.Signal(syscall.SIGINT)
 	}
