@@ -7,22 +7,22 @@ kind: Kustomization
 namespace: misskey-compactor
 
 labels:
-  - pairs:
-      app.kubernetes.io/name: misskey-s3-compactor
-      app.kubernetes.io/managed-by: kustomize
-    includeSelectors: false
-    includeTemplates: true
+- includeTemplates: true
+  pairs:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: misskey-s3-compactor
 
 resources:
-  - namespace.yaml
-  - rbac.yaml
-  - configmap.yaml
-  - secret.yaml  # contains placeholders -- overwrite values before applying
-  - cronjob.yaml
+- namespace.yaml
+- rbac.yaml
+- configmap.yaml
+- secret.yaml
+- cronjob.yaml
 
 # The container image digest/tag should be pinned per environment. Override
 # via `kustomize edit set image` in CI after each successful build:
 #   kustomize edit set image ghcr.io/yude/misskey-s3-compactor=ghcr.io/yude/misskey-s3-compactor:<tag>@sha256:...
 images:
-  - name: ghcr.io/yude/misskey-s3-compactor
-    newTag: latest
+- digest: sha256:52c294b4bc94ba956fd89818b2ac6591d09e4f52ed8414ebad797a9b45359120
+  name: ghcr.io/yude/misskey-s3-compactor
+  newName: ghcr.io/yude/misskey-s3-compactor
