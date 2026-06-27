@@ -27,9 +27,13 @@ services:
         target: /tmp
         tmpfs:
           size: 2147483648
+          mode: 1777
     # Mirrors K8s securityContext on the container and pod.
     user: "65532:65532"
-    read_only: true
+    # read_only is omitted intentionally: Docker Compose applies it to all
+    # mounts including tmpfs, unlike K8s where readOnlyRootFilesystem only
+    # affects the rootfs. The compactor writes to /tmp.
+    cap_drop:
     cap_drop:
       - ALL
     security_opt:
