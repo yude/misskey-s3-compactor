@@ -123,7 +123,10 @@ jobs:
 
       - name: Verify kustomize build
         if: github.event_name != 'pull_request'
-        run: kustomize build deploy | kubectl apply --dry-run=client -f -
+        # --validate=false: no cluster is available in CI, so we skip
+        # server-side OpenAPI validation and only check that kustomize
+        # produces parseable YAML that kubectl can load client-side.
+        run: kustomize build deploy | kubectl apply --dry-run=client --validate=false -f -
 
       - name: Commit pinned manifest back
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
