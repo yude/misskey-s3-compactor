@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: misskey-compactor-config
+  namespace: misskey-compactor
+  labels:
+    app.kubernetes.io/name: misskey-s3-compactor
+data:
+  # Bucket layout. Misskey writes objects under a configurable prefix; match it.
+  S3_PREFIX: "misskey/"
+  S3_REGION: "us-east-1"
+  # Set S3_USE_PATH_STYLE=true for MinIO/SeaweedFS/etc. (no effect on AWS S3).
+  S3_USE_PATH_STYLE: "true"
+  # Leave S3_ENDPOINT empty for AWS S3; otherwise e.g. https://s3.example.com
+  S3_ENDPOINT: ""
+
+  # Image compression knobs.
+  JPEG_QUALITY: "80"
+  PNG_STRIP_METADATA: "true"
+  WEBP_QUALITY: "80"
+  GIF_FLAGS: "--optimize=3"
+
+  # Video: re-encode to HEVC via ffmpeg libx265.
+  VIDEO_CODEC: "libx265"
+  VIDEO_PRESET: "medium"
+  VIDEO_CRF: "26"
+  VIDEO_PIXFMT: "yuv420p"
+
+  # Behavior.
+  SKIP_MARKED: "true"
+  MARKER_KEY: "x-amz-meta-compactor"
+  MIN_SAVING_RATIO: "0.05"
+  # Skip files larger than 2 GiB by default (override for your env).
+  MAX_OBJECT_BYTES: "2147483648"
+  DRY_RUN: "false"
+  LOG_LEVEL: "info"

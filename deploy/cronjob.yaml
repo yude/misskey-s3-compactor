@@ -1,0 +1,63 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: misskey-compactor
+  namespace: misskey-compactor
+  labels:
+    app.kubernetes.io/name: misskey-s3-compactor
+spec:
+  # Nightly at 03:00 JST (18:00 UTC). Override via `kubectl patch` as needed.
+  schedule: "0 18 * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 21600 # 6h hard cap per run
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: misskey-s3-compactor
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: misskey-compactor
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: compactor
+              image: ghcr.io/yude/misskey-s3-compactor:latest
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - configMapRef:
+                    name: misskey-compactor-config
+                - secretRef:
+                    name: misskey-compactor-s3
+              resources:
+                requests:
+                  cpu: "500m"
+                  memory: "512Mi"
+                limits:
+                  cpu: "4000m"
+                  memory: "4Gi"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+                capabilities:
+                  drop: ["ALL"]
+                seccompProfile:
+                  type: RuntimeDefault
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir:
+                medium: Memory
+                sizeLimit: 2Gi
