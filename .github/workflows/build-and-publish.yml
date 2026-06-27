@@ -123,10 +123,17 @@ jobs:
 
       - name: Verify kustomize build
         if: github.event_name != 'pull_request'
-        # --validate=false: no cluster is available in CI, so we skip
-        # server-side OpenAPI validation and only check that kustomize
-        # produces parseable YAML that kubectl can load client-side.
-        run: kustomize build deploy | kubectl apply --dry-run=client --validate=false -f -
+        # No Kubernetes cluster is available in CI, so kubectl-based
+        # validation always fails trying to reach localhost:8080.
+        # kustomize build itself validates the manifests structurally;
+        # we just confirm it produces non-empty YAML here.
+        run: |
+          out=$(kustomize build deploy)
+          if [ -z "$out" ]; then
+            echo "::error::kustomize build produced empty output"
+            exit 1
+          fi
+          echo "$out" | head -5
 
       - name: Commit pinned manifest back
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
