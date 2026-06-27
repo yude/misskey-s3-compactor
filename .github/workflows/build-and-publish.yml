@@ -110,7 +110,8 @@ jobs:
         id: digest
         run: |
           digest=$(echo "${{ steps.build.outputs.digest }}" | cut -d: -f2)
-          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "digest=${digest}"        >> "$GITHUB_OUTPUT"
+          echo "short=${digest:0:12}"    >> "$GITHUB_OUTPUT"
 
       # Pin the freshly built image digest into the manifest for reproducibility.
       - name: Update kustomize image reference
@@ -134,5 +135,5 @@ jobs:
             echo "no changes to commit"
             exit 0
           fi
-          git commit -m "chore(deploy): pin image to sha-${{ steps.digest.outputs.digest:0:12 }} [skip ci]"
+          git commit -m "chore(deploy): pin image to sha-${{ steps.digest.outputs.short }} [skip ci]"
           git push
