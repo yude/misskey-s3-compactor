@@ -23,6 +23,6 @@ resources:
 # via `kustomize edit set image` in CI after each successful build:
 #   kustomize edit set image ghcr.io/yude/misskey-s3-compactor=ghcr.io/yude/misskey-s3-compactor:<tag>@sha256:...
 images:
-- digest: sha256:6105b75b0a1165e3dc376fcc292f20c26554a8d51d88259f06260acbbb52a744
+- digest: sha256:8062b1b6182fedfef9eebef765c4770114bb78b5cd44d308f2bc28324f665a44
   name: ghcr.io/yude/misskey-s3-compactor
   newName: ghcr.io/yude/misskey-s3-compactor
