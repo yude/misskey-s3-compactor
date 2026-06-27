@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/yude/misskey-s3-compactor/internal/config"
@@ -72,6 +73,18 @@ func (c *Compressor) Compress(ctx context.Context, srcPath, destPath, mimeType, 
 	}
 }
 
+// commandContext creates an exec.Cmd that is killed with SIGINT (not SIGKILL)
+// when the context is cancelled, then force-killed after a 5-second grace
+// period. This lets ffmpeg and other tools clean up gracefully on Ctrl+C.
+func commandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	cmd.Cancel = func() error {
+		return cmd.Process.Signal(syscall.SIGINT)
+	}
+	cmd.WaitDelay = 5 * time.Second
+	return cmd
+}
+
 // runJPEG: copy file as-is to destPath then jpegoptim in-place for re-encoding.
 func (c *Compressor) runJPEG(ctx context.Context, src, dest, key string) Result {
 	r := Result{Kind: "image/jpeg", Compressor: "jpegoptim"}
@@ -88,7 +101,7 @@ func (c *Compressor) runJPEG(ctx context.Context, src, dest, key string) Result 
 
 	start := time.Now()
 	args := []string{"-s", fmt.Sprintf("--max=%d", c.cfg.JPEGQuality), "--all-progressive", "--strip-com", dest}
-	if out, err := exec.CommandContext(ctx, "jpegoptim", args...).CombinedOutput(); err != nil {
+	if out, err := commandContext(ctx, "jpegoptim", args...).CombinedOutput(); err != nil {
 		c.log.Debug("jpegoptim failed", "key", key, "output", string(out), "err", err)
 		r.Err = fmt.Errorf("jpegoptim: %w (%s)", err, strings.TrimSpace(string(out)))
 		return r
@@ -118,15 +131,12 @@ func (c *Compressor) runPNG(ctx context.Context, src, dest, key string) Result {
 		return r
 	}
 	start := time.Now()
-	args := []string{"-o", "3", "--strip", "safe"}
+	stripMode := "safe"
 	if c.cfg.PNGStripMetadata {
-		args = []string{"-o", "3", "--strip", "all"}
+		stripMode = "all"
 	}
-	if c.cfg.PNGStripMetadata {
-		args = []string{"-o", "3", "--strip", "all"}
-	}
-	args = append(args, dest)
-	if out, err := exec.CommandContext(ctx, "oxipng", args...).CombinedOutput(); err != nil {
+	args := []string{"-o", "3", "--strip", stripMode, dest}
+	if out, err := commandContext(ctx, "oxipng", args...).CombinedOutput(); err != nil {
 		c.log.Debug("oxipng failed", "key", key, "output", string(out), "err", err)
 		r.Err = fmt.Errorf("oxipng: %w (%s)", err, strings.TrimSpace(string(out)))
 		return r
@@ -149,7 +159,7 @@ func (c *Compressor) runWebP(ctx context.Context, src, dest, key string) Result 
 	start := time.Now()
 	out := filepath.Join(filepath.Dir(dest), "cwebp_out.webp")
 	args := []string{"-q", fmt.Sprintf("%d", c.cfg.WebPQuality), src, "-o", out}
-	if o, err := exec.CommandContext(ctx, "cwebp", args...).CombinedOutput(); err != nil {
+	if o, err := commandContext(ctx, "cwebp", args...).CombinedOutput(); err != nil {
 		c.log.Debug("cwebp failed", "key", key, "output", string(o), "err", err)
 		r.Err = fmt.Errorf("cwebp: %w (%s)", err, strings.TrimSpace(string(o)))
 		return r
@@ -177,7 +187,7 @@ func (c *Compressor) runGIF(ctx context.Context, src, dest, key string) Result {
 	args := []string{"--no-warnings", "--output", dest}
 	args = append(args, strings.Fields(c.cfg.GIFFlags)...)
 	args = append(args, src)
-	if out, err := exec.CommandContext(ctx, "gifsicle", args...).CombinedOutput(); err != nil {
+	if out, err := commandContext(ctx, "gifsicle", args...).CombinedOutput(); err != nil {
 		c.log.Debug("gifsicle failed", "key", key, "output", string(out), "err", err)
 		r.Err = fmt.Errorf("gifsicle: %w (%s)", err, strings.TrimSpace(string(out)))
 		return r
@@ -218,7 +228,7 @@ func (c *Compressor) runVideo(ctx context.Context, src, dest, key string) Result
 		"-movflags", "+faststart",
 		dest,
 	}
-	if out, err := exec.CommandContext(ctx, "ffmpeg", args...).CombinedOutput(); err != nil {
+	if out, err := commandContext(ctx, "ffmpeg", args...).CombinedOutput(); err != nil {
 		c.log.Debug("ffmpeg failed", "key", key, "output", lastLine(out), "err", err)
 		r.Err = fmt.Errorf("ffmpeg: %w (%s)", err, lastLine(out))
 		return r
@@ -272,7 +282,7 @@ func copyFile(src, dest string) error {
 }
 
 func probeVideoCodec(ctx context.Context, path string) (string, error) {
-	out, err := exec.CommandContext(ctx, "ffprobe",
+	out, err := commandContext(ctx, "ffprobe",
 		"-v", "error",
 		"-select_streams", "v:0",
 		"-show_entries", "stream=codec_name",

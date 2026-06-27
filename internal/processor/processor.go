@@ -54,7 +54,7 @@ func New(cfg config.Config, s3c *s3.Client, comp *compress.Compressor, log *slog
 func (p *Processor) Stats() Stats { return p.stats }
 
 // Handle is the per-object callback used by walker.Walk.
-func (p *Processor) Handle(o walker.Object) error {
+func (p *Processor) Handle(ctx context.Context, o walker.Object) error {
 	p.stats.Scanned++
 
 	if p.cfg.MaxObjectBytes > 0 && o.Size > p.cfg.MaxObjectBytes {
@@ -63,7 +63,7 @@ func (p *Processor) Handle(o walker.Object) error {
 		return nil
 	}
 
-	head, err := p.s3.HeadObject(context.Background(), &s3.HeadObjectInput{
+	head, err := p.s3.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(p.bucket),
 		Key:    aws.String(o.Key),
 	})
@@ -86,7 +86,7 @@ func (p *Processor) Handle(o walker.Object) error {
 		contentType = guessContentType(o.Key)
 	}
 
-	if err := p.processOne(context.Background(), o.Key, contentType, metadata); err != nil {
+	if err := p.processOne(ctx, o.Key, contentType, metadata); err != nil {
 		p.stats.Errors++
 		p.log.Warn("process failed", "key", o.Key, "err", err)
 	}

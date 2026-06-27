@@ -35,9 +35,10 @@ func New(client Lister, bucket, prefix string) *Walker {
 }
 
 // Walk lists every object key under the configured prefix. Each key is passed
-// to fn; if fn returns an error walking stops immediately. Pagination is
-// internal and transparent.
-func (w *Walker) Walk(ctx context.Context, fn func(Object) error) error {
+// to fn along with the context; if fn returns an error walking stops
+// immediately. The context is checked between objects and passed to fn so
+// long-running callbacks (downloads, compressions) can observe cancellation.
+func (w *Walker) Walk(ctx context.Context, fn func(context.Context, Object) error) error {
 	var token *string
 	for {
 		select {
@@ -56,7 +57,12 @@ func (w *Walker) Walk(ctx context.Context, fn func(Object) error) error {
 		}
 
 		for _, o := range out.Contents {
-			if err := fn(Object{
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			if err := fn(ctx, Object{
 				Key:          aws.ToString(o.Key),
 				Size:         aws.ToInt64(o.Size),
 				ContentType:  "",

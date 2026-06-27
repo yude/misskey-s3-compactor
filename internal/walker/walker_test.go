@@ -32,7 +32,7 @@ func TestWalk_SinglePage(t *testing.T) {
 	}, truncated: false}
 	w := New(l, "b", "p")
 	var got []string
-	if err := w.Walk(context.Background(), func(o Object) error {
+	if err := w.Walk(context.Background(), func(_ context.Context, o Object) error {
 		got = append(got, o.Key)
 		return nil
 	}); err != nil {
@@ -53,7 +53,7 @@ func TestWalk_StopOnCallback(t *testing.T) {
 	w := New(l, "b", "p")
 	sentinel := errors.New("stop")
 	got := 0
-	err := w.Walk(context.Background(), func(o Object) error {
+	err := w.Walk(context.Background(), func(_ context.Context, o Object) error {
 		got++
 		return sentinel
 	})
@@ -74,7 +74,7 @@ func TestWalk_MultiPage(t *testing.T) {
 	}
 	w := New(l, "b", "p")
 	var got []string
-	if err := w.Walk(context.Background(), func(o Object) error {
+	if err := w.Walk(context.Background(), func(_ context.Context, o Object) error {
 		if o.Key != "" {
 			got = append(got, o.Key)
 		}
@@ -87,6 +87,31 @@ func TestWalk_MultiPage(t *testing.T) {
 	}
 	if len(got) != 3 || got[0] != "a" || got[1] != "b" || got[2] != "c" {
 		t.Fatalf("unexpected keys %v", got)
+	}
+}
+
+func TestWalk_CancelBetweenObjects(t *testing.T) {
+	l := &statefulLister{
+		pages: [][]types.Object{
+			{{Key: aws.String("a")}, {Key: aws.String("b")}},
+			{{Key: aws.String("c")}},
+		},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	w := New(l, "b", "p")
+	var got []string
+	err := w.Walk(ctx, func(_ context.Context, o Object) error {
+		got = append(got, o.Key)
+		if len(got) == 1 {
+			cancel()
+		}
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 object before cancel, got %d", len(got))
 	}
 }
 
