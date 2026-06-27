@@ -16,6 +16,7 @@ RUN go test ./...
 
 # --- runtime stage ------------------------------------------------------------
 FROM alpine:3.21 AS runtime
+ARG TARGETARCH=amd64
 
 # Compression toolchain. alpine [community] is enabled by default in the image.
 RUN apk add --no-cache \
@@ -27,6 +28,18 @@ RUN apk add --no-cache \
         gifsicle \
         ffmpeg \
     && update-ca-certificates
+
+# Install supercronic (container-native cron) for the Docker Compose deployment.
+# The K8s CronJob doesn't use it; the ENTRYPOINT stays as the compactor binary.
+# Verify the checksum in production: see https://github.com/aptible/supercronic/releases
+RUN case "$TARGETARCH" in \
+      amd64) SC_ARCH=amd64 ;; \
+      arm64) SC_ARCH=arm64 ;; \
+      *) echo "unsupported TARGETARCH=$TARGETARCH" && exit 1 ;; \
+    esac && \
+    wget -qO /usr/local/bin/supercronic \
+      "https://github.com/aptible/supercronic/releases/download/v0.2.30/supercronic-linux-${SC_ARCH}" && \
+    chmod +x /usr/local/bin/supercronic
 
 COPY --from=build /out/compactor /usr/local/bin/compactor
 

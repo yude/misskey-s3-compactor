@@ -1,0 +1,37 @@
+# Docker Compose runner for misskey-s3-compactor.
+#
+# Mirrors the K8s CronJob deployment:
+#   - supercronic provides the cron schedule (equivalent to K8s CronJob)
+#   - runs as non-root (65532:65532), read-only root fs, tmpfs /tmp
+#   - all configuration via .env file (mirrors ConfigMap + Secret)
+#
+# Usage:
+#   1. cp .env.example .env  &&  edit .env
+#   2. docker compose up -d
+#  Manual one-shot:
+#   docker compose run --rm --entrypoint /usr/local/bin/compactor compactor
+#
+# Verify the schedule in ./crontab — default is 03:00 JST (18:00 UTC).
+
+services:
+  compactor:
+    image: ghcr.io/yude/misskey-s3-compactor:latest
+    # Override entrypoint: run supercronic scheduler instead of one-shot compactor.
+    entrypoint: ["supercronic", "/crontab"]
+    env_file:
+      - .env
+    volumes:
+      - ./crontab:/crontab:ro
+      # tmpfs mirrors the K8s emptyDir { medium: Memory, sizeLimit: 2Gi }
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 2147483648
+    # Mirrors K8s securityContext on the container and pod.
+    user: "65532:65532"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped

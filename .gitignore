@@ -1,0 +1,9 @@
+# Secrets — never commit real values.
+deploy/compose/.env
+
+# Build artifacts.
+*.exe
+*.dll
+*.so
+*.dylib
+/compactor

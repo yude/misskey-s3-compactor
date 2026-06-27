@@ -1,0 +1,7 @@
+# supercronic crontab — edit the schedule line to change execution timing.
+# Format:  minute hour day-of-month month day-of-week  command
+#
+# Default: 03:00 JST (18:00 UTC) — matches the K8s CronJob schedule.
+# supercronic inherits the container environment and passes it to child commands.
+
+0 18 * * * /usr/local/bin/compactor

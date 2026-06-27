@@ -79,6 +79,32 @@ kubectl apply -k deploy/
 kubectl -n misskey-compactor create job --from=cronjob/misskey-compactor misskey-compactor-manual
 ```
 
+### Docker Compose でデプロイする場合
+
+Kubernetes を使わず Docker Compose でも同等の機能を利用できる。コンテナ内で [`supercronic`](https://github.com/aptible/supercronic)(コンテナ向け cron) を動かし、K8s CronJob と同じスケジュール実行・非 root・読み取り専用ルート FS・tmpfs `/tmp` を再現している。
+
+```sh
+cd deploy/compose
+
+# 1. 設定ファイルを用意
+cp .env.example .env
+#    .env を編集して S3 バケット名・認証情報・圧縮パラメータを設定する
+
+# 2. 起動(スケジューラ常駐)
+docker compose up -d
+
+# 3. ログ確認
+docker compose logs -f compactor
+
+# 4. 手動で 1 回だけ実行したい場合
+docker compose run --rm --entrypoint /usr/local/bin/compactor compactor
+
+# 5. 停止
+docker compose down
+```
+
+実行スケジュールは `deploy/compose/crontab` で変更する(既定は K8s と同じ `0 18 * * *` = 毎晩 03:00 JST)。`.env` に記述する環境変数は [設定リファレンス](#設定リファレンス) と同じ。
+
 ## 設定リファレンス
 
 すべて環境変数で制御する。CI ビルド後は `kustomize edit set image` でタグが自動で `deploy/kustomization.yaml` に固定されるため、イメージ参照を手動更新する必要はない。
