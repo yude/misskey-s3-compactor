@@ -34,7 +34,6 @@ services:
     # mounts including tmpfs, unlike K8s where readOnlyRootFilesystem only
     # affects the rootfs. The compactor writes to /tmp.
     cap_drop:
-    cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
